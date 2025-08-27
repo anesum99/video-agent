@@ -1331,7 +1331,7 @@ def create_ui(agent: VideoAgent):
                 with gr.Row():
                     chat_video = gr.Video(label="Upload Video")
                     with gr.Column():
-                        chat = gr.Chatbot(height=360, label="Conversation")
+                        chat = gr.Chatbot(height=360, label="Conversation", type="messages")
                         chat_q = gr.Textbox(placeholder="Ask about the video…")
                         chat_fmt = gr.Dropdown(
                             choices=["markdown", "json", "bullets", "just_number"],
@@ -1371,7 +1371,7 @@ def create_ui(agent: VideoAgent):
                 chat_reset.click(lambda: ([], "", "markdown"), inputs=None, outputs=[chat, chat_q, chat_fmt])
 
         # Queue enables the spinner/progress; tune concurrency as you like
-        demo.queue(concurrency_count=1, max_size=16)
+        demo.queue(concurrency=1, max_size=16)
 
     return demo
 
