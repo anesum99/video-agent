@@ -21,9 +21,10 @@ import time
 import base64
 import asyncio
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, is_dataclass, asdict, field
 from typing import Any, Dict, List, Optional, Tuple, Union
 from enum import Enum
+from collections.abc import Mapping
 
 import torch
 import av
@@ -59,6 +60,13 @@ except ImportError:
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("video-agent")
+
+
+def _as_mapping(x):
+    if is_dataclass(x) and not isinstance(x, type):
+        return asdict(x)
+    return x
+
 
 # ===========================
 # Configuration Classes
@@ -1122,6 +1130,55 @@ class VideoAgent:
         """Initialize MCP servers"""
         for name, command in servers:
             await self.mcp.connect_server(name, command)
+
+    def unwrap_result(self, res):
+        # If top-level envelope dict has a "result" key -> use it
+        if isinstance(res, Mapping):
+            if "result" in res:
+                return res["result"]  # "Count: 4"
+            # If it's already a result dict from your nodes (count/ocr/etc.)
+            if "count" in res and res.get("type") == "count":
+                # Return a human string or the number; pick one
+                return f"Count: {res['count']}"
+            if "answer" in res:
+                return res["answer"]
+            if "texts" in res and isinstance(res["texts"], list):
+                return "\n".join(map(str, res["texts"]))
+            # Fallback: stringify the dict
+            return str(res)
+
+        # Object with .result attribute
+        if hasattr(res, "result"):
+            return getattr(res, "result")
+
+        # Pydantic BaseModel
+        try:
+            from pydantic import BaseModel
+            if isinstance(res, BaseModel):
+                try:
+                    d = res.model_dump()
+                except Exception:
+                    d = res.dict()
+                if "result" in d:
+                    return d["result"]
+                if "count" in d and d.get("type") == "count":
+                    return f"Count: {d['count']}"
+                return str(d)
+        except Exception:
+            pass
+
+        # Dataclass object
+        if is_dataclass(res) and not isinstance(res, type):
+            d = asdict(res)
+            if "result" in d:
+                return d["result"]
+            if "count" in d and d.get("type") == "count":
+                return f"Count: {d['count']}"
+            return str(d)
+
+        # Fallback
+        return res
+     
     
     def process(self, video_path: Optional[str], question: str, 
                 answer_format: AnswerFormat = AnswerFormat.MARKDOWN) -> Dict[str, Any]:
@@ -1137,13 +1194,8 @@ class VideoAgent:
         result = self.graph.invoke(initial_state, config)
         
         print(f"DEBUG: graph.invoke returned type: {type(result)}")
-        print(f"DEBUG: result has 'result' attr: {hasattr(result, 'result')}")
         
-        if hasattr(result, 'result'):
-            return result.result
-        else:
-            # Graph invoke returned a dict, not AgentState
-            return result
+        return self.unwrap_result(result)
 
 # ===========================
 # Gradio UI
@@ -1183,7 +1235,7 @@ def create_ui(agent: VideoAgent):
                     clear_btn = gr.Button("Clear")
         
         with gr.Row():
-            output = gr.JSON(label="Result")
+            output = gr.Markdown(label="Result")
         
         with gr.Row():
             status = gr.Markdown("Ready to analyze videos")
