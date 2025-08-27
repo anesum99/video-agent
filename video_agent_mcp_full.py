@@ -1136,7 +1136,14 @@ class VideoAgent:
         
         result = self.graph.invoke(initial_state, config)
         
-        return result.result
+        print(f"DEBUG: graph.invoke returned type: {type(result)}")
+        print(f"DEBUG: result has 'result' attr: {hasattr(result, 'result')}")
+        
+        if hasattr(result, 'result'):
+            return result.result
+        else:
+            # Graph invoke returned a dict, not AgentState
+            return result
 
 # ===========================
 # Gradio UI
