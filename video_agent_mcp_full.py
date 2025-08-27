@@ -107,13 +107,33 @@ class AgentState:
     question: str = ""
     answer_format: AnswerFormat = AnswerFormat.MARKDOWN
     tool_type: Optional[ToolType] = None
-    frames: List[Image.Image] = field(default_factory=list)
+    frames_b64: List[str] = field(default_factory=list)  # Base64 encoded frames for serialization
     metadata: Dict[str, Any] = field(default_factory=dict)
     result: Dict[str, Any] = field(default_factory=dict)
     confidence: float = 0.0
     provenance: Dict[str, Any] = field(default_factory=dict)
     context: List[Dict[str, Any]] = field(default_factory=list)
     messages: List[BaseMessage] = field(default_factory=list)
+    
+    # Helper methods for frame conversion
+    def set_frames(self, frames: List[Image.Image]):
+        """Convert PIL Images to base64 for serialization"""
+        self.frames_b64 = [self._image_to_base64(frame) for frame in frames]
+    
+    def get_frames(self) -> List[Image.Image]:
+        """Convert base64 back to PIL Images"""
+        return [self._base64_to_image(b64) for b64 in self.frames_b64]
+    
+    def _image_to_base64(self, image: Image.Image) -> str:
+        """Convert PIL Image to base64 string"""
+        buffer = io.BytesIO()
+        image.save(buffer, format='PNG')
+        return base64.b64encode(buffer.getvalue()).decode('utf-8')
+    
+    def _base64_to_image(self, b64_string: str) -> Image.Image:
+        """Convert base64 string to PIL Image"""
+        img_data = base64.b64decode(b64_string)
+        return Image.open(io.BytesIO(img_data))
 
 # ===========================
 # Video Processing Utilities
@@ -676,17 +696,20 @@ class VideoAgent:
         # Extract frames based on tool type
         if state.tool_type == ToolType.TIMELINE:
             # Use uniform sampling for timelines
-            state.frames = VideoProcessor.uniform_sample_frames(
+            frames = VideoProcessor.uniform_sample_frames(
                 state.video_path, 
                 num_frames=min(48, self.model_config.max_frames * 2)
             )
         else:
             # Use keyframes for other analyses
-            state.frames = self.core.get_cached_frames(state.video_path)
+            frames = self.core.get_cached_frames(state.video_path)
+        
+        # Convert frames to base64 for serialization
+        state.set_frames(frames)
         
         # Generate contact sheet
-        if state.frames:
-            sheet = create_contact_sheet(state.frames[:16])
+        if frames:
+            sheet = create_contact_sheet(frames[:16])
             sheet_path = f"contact_sheet_{int(time.time())}.png"
             sheet.save(sheet_path)
             state.provenance["contact_sheet"] = sheet_path
@@ -694,7 +717,7 @@ class VideoAgent:
         # Calculate provenance
         fps = state.metadata.get("fps", 0)
         duration = state.metadata.get("duration_seconds", 0)
-        n_frames = len(state.frames)
+        n_frames = len(frames)
         
         timestamps = []
         for i in range(n_frames):
@@ -730,7 +753,7 @@ class VideoAgent:
         )
         
         answer = self.core.generate(
-            state.frames,
+            state.get_frames(),
             state.question,
             instruction=instruction
         )
@@ -780,7 +803,7 @@ class VideoAgent:
         )
         
         response = self.core.generate(
-            state.frames,
+            state.get_frames(),
             state.question,
             instruction=instruction
         )
@@ -823,7 +846,7 @@ class VideoAgent:
         if self.mcp.enabled:
             yolo_result = self.mcp.call_tool_sync(
                 "yolo", "count_objects",
-                {"frames": [self._frame_to_base64(f) for f in state.frames[:8]], "class": target}
+                {"frames": state.frames_b64[:8], "class": target}
             )
             
             if yolo_result and "count" in yolo_result:
@@ -895,7 +918,7 @@ class VideoAgent:
         if self.mcp.enabled:
             ocr_result = self.mcp.call_tool_sync(
                 "ocr", "read",
-                {"frames": [self._frame_to_base64(f) for f in state.frames[:8]]}
+                {"frames": state.frames_b64[:8]}
             )
             
             if ocr_result:
@@ -910,7 +933,7 @@ class VideoAgent:
         instruction = "Read any visible text in these frames and list them."
         
         response = self.core.generate(
-            state.frames,
+            state.get_frames(),
             state.question,
             instruction=instruction
         )
@@ -944,7 +967,7 @@ class VideoAgent:
         instruction = "Identify distinct scenes or shots in these video frames."
         
         response = self.core.generate(
-            state.frames,
+            state.get_frames(),
             state.question,
             instruction=instruction
         )
