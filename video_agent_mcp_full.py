@@ -1200,8 +1200,182 @@ class VideoAgent:
 # ===========================
 # Gradio UI
 # ===========================
+def analyze_video(video, question, format_type, progress=gr.Progress()):
+    """Process video analysis"""
+    if not video:
+        # Keep types consistent with your outputs: (JSON, Markdown)
+        return {"error": "Please upload a video"}, "No video uploaded"
+
+    start_time = time.time()
+
+    try:
+        # Convert format string to enum (unchanged)
+        format_map = {
+            "markdown": AnswerFormat.MARKDOWN,
+            "json": AnswerFormat.JSON,
+            "bullets": AnswerFormat.BULLETS,
+            "just_number": AnswerFormat.JUST_NUMBER,
+        }
+        answer_format = format_map.get(format_type, AnswerFormat.MARKDOWN)
+
+        # Progress steps (non-intrusive; shows spinner if queue enabled)
+        progress(0.05, desc="Initializing…")
+
+        # Process (unchanged)
+        result = agent.process(video, question, answer_format)
+
+        progress(0.65, desc="Formatting result…")
+
+        # Your status line (unchanged)
+        confidence = result.get("confidence", 0) if isinstance(result, dict) else 0.5
+        elapsed = time.time() - start_time
+        status_msg = f"✅ Analysis complete | Confidence: {confidence:.2f} | Time: {elapsed:.1f}s"
+
+        # 🔒 Ensure the first output (likely gr.JSON) always receives JSON-serializable
+        # If the graph returned a plain string for markdown, wrap it.
+        if not isinstance(result, (dict, list)):
+            result = {"text": str(result)}
+
+        progress(1.0, desc="Done")
+        return result, status_msg
+
+    except Exception as e:
+        elapsed = time.time() - start_time
+        return {"error": str(e)}, f"❌ Error: {e} | Time: {elapsed:.1f}s"
+
+
+def clear_interface():
+    """Clear all inputs and outputs"""
+    # Match your outputs order: [video_input, question_input, format_dropdown, output(JSON), status]
+    return None, "", "markdown", {}, "Ready to analyze videos"
 
 def create_ui(agent: VideoAgent):
+    """Create Gradio interface with better layout, progress, and disabled button while running."""
+    import gradio as gr
+
+    with gr.Blocks(title="Video Agent", theme=gr.themes.Soft()) as demo:
+        gr.HTML("""
+        <h2 style='text-align: center'>🎬 Video Agent with MCP</h2>
+        <p style='text-align: center'>
+        Powered by Video-LLaVA + MCP Tools &nbsp;|&nbsp; Counts • Timelines • OCR • ASR • Scenes • Contact Sheets
+        </p>
+        """)
+
+        with gr.Tabs():
+            # ------- Classic tab -------
+            with gr.Tab("Classic"):
+                with gr.Row():
+                    video_input = gr.Video(label="Upload Video")
+
+                    with gr.Column():
+                        question_input = gr.Textbox(
+                            label="Question",
+                            placeholder="How many people are in the video?"
+                        )
+                        format_dropdown = gr.Dropdown(
+                            label="Answer Format",
+                            choices=["markdown", "json", "bullets", "just_number"],
+                            value="markdown"
+                        )
+
+                        with gr.Row():
+                            analyze_btn = gr.Button("Analyze", variant="primary")
+                            clear_btn = gr.Button("Clear")
+
+                        # ▼ These appear directly under the buttons
+                        output_md = gr.Markdown()  # human-facing result string
+                        status = gr.Markdown("Ready to analyze videos")
+
+                        with gr.Accordion("Examples", open=True):
+                            gr.Examples(
+                                examples=[
+                                    ["How many people are in the video?"],
+                                    ["Break this video down step by step"],
+                                    ["What text is visible in the video?"],
+                                    ["What's the metadata of this video?"],
+                                    ["How many bikes? format=just_number"],
+                                ],
+                                inputs=[question_input],
+                                run_on_click=False,   # fill the textbox only
+                            )
+
+                # ---- Events: disable → run → re-enable (with progress) ----
+                # 1) Disable the button immediately for UX snappiness
+                analyze_btn.click(
+                    fn=lambda: gr.update(interactive=False, value="Analyzing…"),
+                    inputs=None,
+                    outputs=analyze_btn,
+                    queue=False,
+                # 2) Run analysis (Progress spinner appears automatically)
+                ).then(
+                    fn=analyze_video,
+                    inputs=[video_input, question_input, format_dropdown],
+                    outputs=[output_md, status],
+                # 3) Re-enable button afterward
+                ).then(
+                    fn=lambda: gr.update(interactive=True, value="Analyze"),
+                    inputs=None,
+                    outputs=analyze_btn,
+                    queue=False,
+                )
+
+                # Clear button
+                clear_btn.click(
+                    fn=clear_interface,
+                    inputs=None,
+                    outputs=[video_input, question_input, format_dropdown, output_md, status],
+                )
+
+            # ------- Optional: Chat tab -------
+            with gr.Tab("Chat"):
+                with gr.Row():
+                    chat_video = gr.Video(label="Upload Video")
+                    with gr.Column():
+                        chat = gr.Chatbot(height=360, label="Conversation")
+                        chat_q = gr.Textbox(placeholder="Ask about the video…")
+                        chat_fmt = gr.Dropdown(
+                            choices=["markdown", "json", "bullets", "just_number"],
+                            value="markdown",
+                            label="Answer Format"
+                        )
+                        with gr.Row():
+                            chat_send = gr.Button("Send", variant="primary")
+                            chat_reset = gr.Button("Reset")
+
+                def chat_analyze(history, video, question, fmt, progress=gr.Progress()):
+                    if not question:
+                        return history or [], "", fmt
+                    # Force markdown for human answer in chat UX
+                    progress(0.05, desc="Working…")
+                    answer = agent.process(video, question, AnswerFormat.MARKDOWN)
+                    progress(1.0)
+                    history = (history or []) + [(question, answer)]
+                    return history, "", fmt
+
+                chat_send.click(
+                    fn=lambda: gr.update(interactive=False, value="Sending…"),
+                    inputs=None,
+                    outputs=chat_send,
+                    queue=False
+                ).then(
+                    fn=chat_analyze,
+                    inputs=[chat, chat_video, chat_q, chat_fmt],
+                    outputs=[chat, chat_q, chat_fmt],
+                ).then(
+                    fn=lambda: gr.update(interactive=True, value="Send"),
+                    inputs=None,
+                    outputs=chat_send,
+                    queue=False
+                )
+
+                chat_reset.click(lambda: ([], "", "markdown"), inputs=None, outputs=[chat, chat_q, chat_fmt])
+
+        # Queue enables the spinner/progress; tune concurrency as you like
+        demo.queue(concurrency_count=1, max_size=16)
+
+    return demo
+
+def _create_ui(agent: VideoAgent):
     """Create Gradio interface"""
     
     with gr.Blocks(title="Video Agent", theme=gr.themes.Soft()) as demo:
