@@ -771,17 +771,24 @@ class VideoAgent:
             "Be specific and factual. If something is not visible, say so."
         )
         
+        frames = state.get_frames()
         answer = self.core.generate(
-            state.get_frames(),
+            frames,
             state.question,
             instruction=instruction
         )
+        
+        confidence = 0.7
+        
+        # Simple retry logic without frame updates for now
+        if len(answer.strip()) < 3 or answer.strip().lower() in ["not visible", "unknown"]:
+            confidence = 0.5
         
         state.result = {
             "answer": answer,
             "type": "visual_analysis"
         }
-        state.confidence = 0.7
+        state.confidence = confidence
         
         return state
     
