@@ -1,0 +1,24 @@
+# Core dependencies
+torch>=2.0.0
+torchvision>=0.15.0
+transformers>=4.37.0
+av>=10.0.0
+gradio>=4.0.0
+langgraph>=0.0.20
+langchain-core>=0.1.0
+pillow>=10.0.0
+numpy>=1.24.0
+
+# Optional but recommended
+opencv-python>=4.8.0
+
+# MCP support (optional)
+mcp>=0.1.0
+
+# MCP Server dependencies (install as needed)
+# ultralytics  # For YOLO object detection
+# openai-whisper  # For audio transcription
+# easyocr  # For OCR
+# pytesseract  # Alternative OCR
+# scenedetect[opencv]  # For scene detection
+# ffmpeg-python  # For video processing
