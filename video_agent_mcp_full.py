@@ -122,6 +122,10 @@ class AgentState:
     
     def get_frames(self) -> List[Image.Image]:
         """Convert base64 back to PIL Images"""
+        print(f"DEBUG: get_frames called, has frames_b64: {hasattr(self, 'frames_b64')}")
+        print(f"DEBUG: get_frames called, has frames: {hasattr(self, 'frames')}")
+        if hasattr(self, 'frames'):
+            print(f"DEBUG: WARNING - AgentState has frames attribute!")
         return [self._base64_to_image(b64) for b64 in self.frames_b64]
     
     def _image_to_base64(self, image: Image.Image) -> str:
