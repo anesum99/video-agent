@@ -534,6 +534,25 @@ class VideoLLaVACore:
                 return num
         
         return "0"
+    
+    def provenance(self, frames: List[Image.Image], metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Calculate provenance information for frames used"""
+        fps = metadata.get("fps", 0)
+        total = metadata.get("frames", 0)
+        duration = metadata.get("duration_seconds", 0)
+        n_frames = len(frames)
+        
+        timestamps = []
+        for i in range(n_frames):
+            t = (duration * i) / max(n_frames - 1, 1) if duration > 0 else 0.0
+            timestamps.append(round(t, 2))
+        
+        return {
+            "frame_count_used": n_frames,
+            "approx_timestamps_s": timestamps,
+            "total_video_frames": total,
+            "video_duration": duration
+        }
 
 # ===========================
 # Contact Sheet Generator
@@ -867,7 +886,7 @@ class VideoAgent:
         )
         
         response = self.core.generate(
-            state.frames,
+            state.get_frames(),
             state.question,
             instruction=instruction,
             mode="count"
