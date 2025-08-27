@@ -1200,6 +1200,26 @@ class VideoAgent:
 # ===========================
 # Gradio UI
 # ===========================
+# Adapter: use analyze_video but return a STRING for Markdown UIs
+def analyze_video_markdown(video, question, format_type, progress=gr.Progress()):
+    result, status = analyze_video(video, question, format_type, progress)
+    # Convert result (dict/list/str) → str for Markdown
+    if isinstance(result, dict):
+        txt = (
+            result.get("text")
+            or result.get("result")
+            or (f"Count: {result['count']}" if "count" in result else json.dumps(result, ensure_ascii=False, indent=2))
+        )
+    elif isinstance(result, list):
+        txt = "\n".join(map(str, result))
+    else:
+        txt = str(result)
+    return txt, status
+
+# Adapter: clear for Markdown UIs (returns "" instead of {} for the Markdown slot)
+def clear_interface_md():
+    return None, "", "markdown", "", "Ready to analyze videos"
+
 def analyze_video(video, question, format_type, progress=gr.Progress()):
     """Process video analysis"""
     if not video:
@@ -1308,7 +1328,7 @@ def create_ui(agent: VideoAgent):
                     queue=False,
                 # 2) Run analysis (Progress spinner appears automatically)
                 ).then(
-                    fn=analyze_video,
+                    fn=analyze_video_markdown,
                     inputs=[video_input, question_input, format_dropdown],
                     outputs=[output_md, status],
                 # 3) Re-enable button afterward
@@ -1321,7 +1341,7 @@ def create_ui(agent: VideoAgent):
 
                 # Clear button
                 clear_btn.click(
-                    fn=clear_interface,
+                    fn=clear_interface_md,
                     inputs=None,
                     outputs=[video_input, question_input, format_dropdown, output_md, status],
                 )
@@ -1371,7 +1391,7 @@ def create_ui(agent: VideoAgent):
                 chat_reset.click(lambda: ([], "", "markdown"), inputs=None, outputs=[chat, chat_q, chat_fmt])
 
         # Queue enables the spinner/progress; tune concurrency as you like
-        demo.queue(concurrency=1, max_size=16)
+        demo.queue(max_size=16)
 
     return demo
 
@@ -1409,7 +1429,7 @@ def _create_ui(agent: VideoAgent):
                     clear_btn = gr.Button("Clear")
         
         with gr.Row():
-            output = gr.Markdown(label="Result")
+            output = gr.JSON(label="Result")
         
         with gr.Row():
             status = gr.Markdown("Ready to analyze videos")
@@ -1464,13 +1484,13 @@ def _create_ui(agent: VideoAgent):
         
         # Connect events
         analyze_btn.click(
-            fn=analyze_video,
+            fn=analyze_video_markdown,
             inputs=[video_input, question_input, format_dropdown],
             outputs=[output, status]
         )
         
         clear_btn.click(
-            fn=clear_interface,
+            fn=clear_interface_md,
             outputs=[video_input, question_input, format_dropdown, output, status]
         )
     
