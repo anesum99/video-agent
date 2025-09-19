@@ -1,0 +1,267 @@
+version: '3.8'
+
+services:
+  # Main web application (TEST VERSION)
+  web-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.main.test
+    ports:
+      - "5001:5001"  # Changed from 5000 to 5001
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - REDIS_URL=redis://redis-test:6380/0  # Updated redis port
+      - SECRET_KEY=${SECRET_KEY}
+      - MAX_FRAMES=16
+      - GEMINI_MODEL=gemini-1.5-flash
+      # Microservice URLs (updated ports)
+      - ROUTER_URL=http://router-test:8016
+      - YOLO_URL=http://yolo-test:8011
+      - WHISPER_URL=http://whisper-test:8012
+      - OCR_URL=http://ocr-test:8013
+      - SCENES_URL=http://scenes-test:8014
+      - FFMPEG_URL=http://ffmpeg-test:8015
+    volumes:
+      - ./uploads-test:/app/uploads  # Separate upload directory
+      - ./processed-test:/app/processed  # Separate processed directory
+      - ./logs-test:/app/logs  # Separate logs directory
+    depends_on:
+      redis-test:
+        condition: service_healthy
+      router-test:
+        condition: service_healthy
+      yolo-test:
+        condition: service_healthy
+      whisper-test:
+        condition: service_healthy
+      ocr-test:
+        condition: service_healthy
+      scenes-test:
+        condition: service_healthy
+      ffmpeg-test:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.8'
+
+  # YOLO object detection service (TEST)
+  yolo-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.yolo.test
+    expose:
+      - "8011"  # Changed from 8001
+    environment:
+      - SERVICE_NAME=yolo-test
+      - SERVICE_PORT=8011
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8011/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 800M
+          cpus: '0.8'
+
+  # Whisper transcription service (TEST)
+  whisper-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.whisper.test
+    expose:
+      - "8012"  # Changed from 8002
+    environment:
+      - SERVICE_NAME=whisper-test
+      - SERVICE_PORT=8012
+    volumes:
+      - ./uploads-test:/app/uploads:ro  # Test upload directory
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8012/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 500M
+          cpus: '0.6'
+
+  # OCR text recognition service (TEST)
+  ocr-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.ocr.test
+    expose:
+      - "8013"  # Changed from 8003
+    environment:
+      - SERVICE_NAME=ocr-test
+      - SERVICE_PORT=8013
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8013/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 400M
+          cpus: '0.5'
+    
+    user: "0:0"  # Run as root to avoid permission issues
+    volumes:
+      - /tmp:/tmp
+
+  # Scene detection service (TEST)
+  scenes-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.scenes.test
+    expose:
+      - "8014"  # Changed from 8004
+    environment:
+      - SERVICE_NAME=scenes-test
+      - SERVICE_PORT=8014
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8014/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 300M
+          cpus: '0.4'
+
+  # FFmpeg processing service (TEST)
+  ffmpeg-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.ffmpeg.test
+    expose:
+      - "8015"  # Changed from 8005
+    environment:
+      - SERVICE_NAME=ffmpeg-test
+      - SERVICE_PORT=8015
+    volumes:
+      - ./uploads-test:/app/uploads:ro  # Test directories
+      - ./processed-test:/app/processed
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8015/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 200M
+          cpus: '0.5'
+
+  # Redis for session management (TEST)
+  redis-test:
+    image: redis:7-alpine
+    command: redis-server --port 6380 --maxmemory 128mb --maxmemory-policy allkeys-lru
+    expose:
+      - "6380"  # Changed from 6379
+    volumes:
+      - redis_test_data:/data  # Separate volume
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-p", "6380", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # Nginx reverse proxy (TEST VERSION)
+  nginx-test:
+    image: nginx:alpine
+    ports:
+      - "8080:8080"  # External port 8080
+    volumes:
+      - ./nginx.test.conf:/etc/nginx/nginx.conf:ro  # Different config
+    depends_on:
+      web-test:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+  
+  # Ollama (TEST - different port)
+  ollama-test:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_test_data:/root/.ollama  # Separate volume
+    expose:
+      - "11435"  # Changed from 11434
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11435
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+
+  # Semantic Router service (TEST)
+  router-test:
+    build:
+      context: .
+      dockerfile: Dockerfile.router.test
+    expose:
+      - "8016"  # Changed from 8006
+    environment:
+      - SERVICE_NAME=router-test
+      - OLLAMA_URL=http://ollama-test:11435  # Point to test ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8016/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 45s  # Router needs more time for phi3 model loading
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: '1.0'
+
+volumes:
+  redis_test_data:
+  ollama_test_data:
+
+networks:
+  default:
+    driver: bridge

@@ -1,0 +1,12 @@
+FROM localhost/pytorch-base
+
+# Install Whisper-specific packages (inherits WORKDIR /app)
+RUN pip install --no-cache-dir \
+    flask==3.0.0 \
+    openai-whisper==20231117
+
+COPY http_server_base.py whisper_http_server_test.py ./
+
+EXPOSE 8012
+USER nobody
+CMD ["python", "whisper_http_server_test.py"]

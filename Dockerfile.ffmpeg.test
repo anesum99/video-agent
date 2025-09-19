@@ -1,0 +1,10 @@
+FROM localhost/ffmpeg-base
+
+COPY requirements_ffmpeg.txt ./
+RUN pip install --no-cache-dir -r requirements_ffmpeg.txt
+
+COPY http_server_base.py ffmpeg_http_server_test.py ./
+
+EXPOSE 8015
+USER nobody
+CMD ["python", "ffmpeg_http_server_test.py"]

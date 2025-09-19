@@ -1,0 +1,1 @@
+docker-compose -f docker-compose-microservices.yml down && docker system prune -a --volumes -f && DOCKER_BUILDKIT=0 docker-compose -f docker-compose-microservices.yml build --no-cache  && docker-compose -f docker-compose-microservices.yml up -d && docker exec -it video-agent-ollama-1 ollama pull phi3:mini 

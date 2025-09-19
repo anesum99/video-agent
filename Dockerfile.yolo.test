@@ -1,0 +1,11 @@
+FROM cv-base
+
+COPY requirements_yolo.txt ./
+RUN pip install --no-cache-dir -r requirements_yolo.txt
+
+COPY http_server_base.py yolo_http_server_test.py ./
+COPY yolov10m.onnx ./
+
+EXPOSE 8011
+USER nobody
+CMD ["python", "yolo_http_server_test.py"]

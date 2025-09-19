@@ -1,0 +1,17 @@
+# OCR service requirements - Fixed to use extra-index-url
+--extra-index-url https://download.pytorch.org/whl/cpu
+--trusted-host download.pytorch.org
+
+# Core dependencies (from PyPI)
+flask==3.0.0
+pillow==10.1.0
+numpy==1.24.3
+pytesseract==0.3.10
+opencv-python-headless==4.8.1.78
+
+# PyTorch CPU-only (from extra index)
+torch==2.1.0+cpu
+torchvision==0.16.0+cpu
+
+# EasyOCR (will use CPU PyTorch)
+easyocr==1.7.0

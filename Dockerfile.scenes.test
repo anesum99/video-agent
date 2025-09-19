@@ -1,0 +1,10 @@
+FROM cv-base
+
+COPY requirements_scenes.txt ./
+RUN pip install --no-cache-dir -r requirements_scenes.txt
+
+COPY http_server_base.py scenes_http_server_test.py ./
+
+EXPOSE 8014
+USER nobody
+CMD ["python", "scenes_http_server_test.py"]

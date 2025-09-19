@@ -1,0 +1,5 @@
+--index-url https://download.pytorch.org/whl/cpu
+flask
+openai-whisper==20231117
+torch==2.1.0+cpu
+torchaudio==2.1.0+cpu

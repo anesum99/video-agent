@@ -1,0 +1,3 @@
+# requirements_ffmpeg.txt (FFmpeg microservice)
+flask==3.0.0
+pillow==10.1.0

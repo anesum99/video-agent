@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Analysis Agent</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dist/style.min.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app">
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-video"></i>
+                <span>Video Agent</span>
+            </div>
+            <div class="header-actions">
+                <button id="clearBtn" class="btn-icon" title="Clear">
+                    <i class="fas fa-refresh"></i>
+                </button>
+                <button id="settingsBtn" class="btn-icon" title="Theme">
+                    <i class="fas fa-palette"></i>
+                </button>
+            </div>
+        </header>
+
+        <div class="main">
+            <div class="video-panel">
+                <div class="video-container">
+                    <div id="uploadArea" class="upload-area">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <h3>Upload Video</h3>
+                        <p>Drag & drop or click to browse</p>
+                        <input type="file" id="videoInput" accept="video/*" hidden>
+                        <button class="btn" onclick="document.getElementById('videoInput').click()">
+                            Choose Video
+                        </button>
+                    </div>
+                    <div id="videoPreview" class="video-preview hidden">
+                        <video id="videoPlayer" controls></video>
+                        <div class="video-info">
+                            <h4 id="videoName"></h4>
+                            <div id="videoMetadata" class="metadata"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="quick-actions">
+                    <h4>Quick Questions</h4>
+                    <div class="quick-buttons">
+                        <button class="quick-btn" data-question="What's happening in this video?">
+                            <i class="fas fa-eye"></i> What's happening?
+                        </button>
+                        <button class="quick-btn" data-question="How many people are in the video?">
+                            <i class="fas fa-users"></i> Count people
+                        </button>
+                        <button class="quick-btn" data-question="Break this down step by step">
+                            <i class="fas fa-list-ol"></i> Timeline
+                        </button>
+                        <button class="quick-btn" data-question="What text is visible?">
+                            <i class="fas fa-font"></i> Read text
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="chat-panel">
+                <div class="chat-container">
+                    <div id="chatMessages" class="chat-messages">
+                        <div class="message bot-message">
+                            <div class="message-avatar">
+                                <i class="fas fa-robot"></i>
+                            </div>
+                            <div class="message-content">
+                                <p>👋 Hi! Upload a video and ask me questions about it.</p>
+                                <p>I can describe content, count objects, create timelines, extract text, and more!</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="chat-input-container">
+                        <div class="input-wrapper">
+                            <textarea 
+                                id="chatInput" 
+                                class="chat-input" 
+                                placeholder="Ask about the video..."
+                                rows="1"
+                            ></textarea>
+                            <div class="input-actions">
+                                <select id="formatSelect" class="format-select">
+                                    <option value="markdown">📝 Text</option>
+                                    <option value="bullets">• Bullets</option>
+                                    <option value="json">{ } JSON</option>
+                                    <option value="just_number"># Number</option>
+                                </select>
+                                <button id="sendBtn" class="btn-send">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='dist/app.min.js') }}"></script>
+</body>
+</html>

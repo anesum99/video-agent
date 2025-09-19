@@ -1,0 +1,6 @@
+FROM localhost/base-python
+
+RUN pip install --no-cache-dir flask requests
+COPY router_http_server_test.py ./
+EXPOSE 8016
+CMD ["python", "router_http_server_test.py"]

@@ -1,0 +1,17 @@
+FROM python:3.11-slim-bookworm as pytorch-base
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg curl && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install PyTorch once for all PyTorch services
+RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
+    torch==2.1.0+cpu \
+    torchaudio==2.1.0+cpu \
+    "numpy<2.0"
+
+# Set up proper home for model downloads
+ENV HOME=/tmp
+RUN mkdir -p /tmp/.cache && chmod 777 /tmp/.cache

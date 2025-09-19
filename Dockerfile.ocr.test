@@ -1,0 +1,10 @@
+FROM ocr-base
+
+COPY requirements_ocr.txt ./
+RUN pip install --no-cache-dir -r requirements_ocr.txt
+
+COPY http_server_base.py ocr_http_server_test.py ./
+
+EXPOSE 8013
+USER nobody
+CMD ["python", "ocr_http_server_test.py"]
